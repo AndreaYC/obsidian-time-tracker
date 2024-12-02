@@ -174,15 +174,18 @@ export default class TimerTrackerPlugin extends Plugin {
 	initTimerManager(): void {
 		this.timeManager = new TimerManager()
 		this.timeManager.on('timer-start', this.saveTimers.bind(this))
-    this.timeManager.on('timer-paused', this.saveTimers.bind(this))
-    this.timeManager.on('timer-resumed', this.saveTimers.bind(this))
-    this.timeManager.on('timer-reset', this.saveTimers.bind(this))
-    this.timeManager.on('timer-deleted', this.saveTimers.bind(this))
-    this.timeManager.on('timer-edited', this.saveTimers.bind(this))
+        this.timeManager.on('timer-paused', this.saveTimers.bind(this))
+        this.timeManager.on('timer-resumed', this.saveTimers.bind(this))
+        this.timeManager.on('timer-reset', this.saveTimers.bind(this))
+        this.timeManager.on('timer-deleted', this.saveTimers.bind(this))
+        this.timeManager.on('timer-edited', this.saveTimers.bind(this))
 		this.timeManager.on('timer-saved', this.onTimerSave.bind(this))
 
 		window.timeTrackerEventBus = document.createComment(EVENT_BUS_NAME)
 		window.timeTrackerEventBus.addEventListener('timersaved', this.onTimerSaved.bind(this))
+
+		window.timeTrackerEventBus.addEventListener('starttimer', this.onTimerStart.bind(this))
+		window.timeTrackerEventBus.addEventListener('stoptimer', this.onTimerStop.bind(this))
 	}
 
 	refreshStatusBar(): void {
@@ -213,7 +216,7 @@ export default class TimerTrackerPlugin extends Plugin {
 			.setIdentifier(content.replace(new RegExp(os.EOL, 'g'), ''))
 			.showTimerView()
 			.showTimerControl()
-	}
+	}  
 
 	postProcessor(el: HTMLElement): void {
 		const issueBlocks = Array.from(el.querySelectorAll('.timer-tracker-compatible'))		
@@ -239,6 +242,53 @@ export default class TimerTrackerPlugin extends Plugin {
 				.setIdentifier(identifier)
 				.setType(typeName)
 				.showTimerControl()
+		}
+	}
+
+	onTimerStart(event: CustomEvent): void {
+		const { id, description, tags } = event.detail;
+	
+		console.log('Received timerstart event:', { id, description, tags });
+	
+		try {
+			// get the timer by ID
+			let timer = this.timeManager.getById(id)
+			if (!timer) {
+				// if not found, create a new timer
+				timer = this.timeManager.createNew(id)
+	
+				// add tags if provided
+				if (tags) {
+					tags.forEach((tag :string) => timer.addTag(tag))
+				}
+			}
+	
+			// renew the timer
+			timer.start()
+			console.log(`Timer started: ${id}`)
+		} catch (error) {
+			console.error('Failed to start timer:', error)
+		}
+	}
+
+	onTimerStop(event: CustomEvent): void {
+		const { id } = event.detail;
+	
+		console.log('Received timerstop event:', { id })
+	
+		try {
+			// get the timer by ID
+			const timer = this.timeManager.getById(id)
+			if (!timer) {
+				console.warn(`Timer with ID "${id}" not found.`)
+				return;
+			}
+	
+			// stop and save the timer
+			timer.save()
+			console.log(`Timer stopped: ${id}`)
+		} catch (error) {
+			console.error('Failed to stop timer:', error)
 		}
 	}
 
